@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>360 Formation: PPTX to CSV Quiz Converter</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #0B1D51;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: linear-gradient(135deg, #1A2A80 0%, #3B38A0 100%);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 900px;
+            width: 100%;
+            padding: 40px;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        h1 {
+            color: white;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            background: white;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-align: center;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+
+        .upload-zone {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 60px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-zone:hover {
+            border-color: #764ba2;
+            transform: scale(1.02);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.2);
+        }
+
+        .upload-zone.dragover {
+            background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
+            border-color: #764ba2;
+        }
+
+        .upload-icon {
+            font-size: 4em;
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+
+        .upload-text {
+            color: #333;
+            font-size: 1.2em;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+
+        .upload-subtext {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .status-box {
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: 10px;
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(-20px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .status-box.processing {
+            background: linear-gradient(135deg, #FFF3CD 0%, #FFE5A1 100%);
+            border: 1px solid #FFD700;
+            color: #856404;
+        }
+
+        .status-box.success {
+            background: linear-gradient(135deg, #D4EDDA 0%, #B8E6C4 100%);
+            border: 1px solid #28a745;
+            color: #155724;
+        }
+
+        .status-box.error {
+            background: linear-gradient(135deg, #F8D7DA 0%, #F5C6CB 100%);
+            border: 1px solid #dc3545;
+            color: #721c24;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255,255,255,0.5);
+            border-radius: 4px;
+            margin-top: 15px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 4px;
+        }
+
+        .results {
+            margin-top: 30px;
+            display: none;
+        }
+
+        .result-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            color: #666;
+            margin-top: 5px;
+            font-size: 0.9em;
+        }
+
+        .mcq-preview {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .mcq-item {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .mcq-title {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .mcq-option {
+            padding: 5px 0;
+            color: #555;
+        }
+
+        .mcq-option.correct {
+            color: #28a745;
+            font-weight: 500;
+        }
+
+        .download-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 50px;
+            font-size: 1.1em;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-block;
+            margin-top: 20px;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+        }
+
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.4);
+        }
+
+        .download-btn:active {
+            transform: translateY(0);
+        }
+
+        .warning-note {
+            background: #FFF3CD;
+            border: 1px solid #FFD700;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            color: #856404;
+            font-size: 0.9em;
+        }
+
+        .info-box {
+            background: #E8F4FF;
+            border: 1px solid #0066CC;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            color: #004080;
+            font-size: 0.9em;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(0,0,0,0.1);
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>360 Formation: PPTX to CSV Quiz Converter</h1>
+        <p class="subtitle">Simply upload your DOCX file containing multiple-choice questions to <br> seamlessly
+them into a structured 360 quiz format.</p>
+        
+        <div class="upload-zone" id="uploadZone">
+            <div class="upload-icon">📄</div>
+            <div class="upload-text">Click to upload or drag & drop</div>
+            <div class="upload-subtext">Supported: Microsoft Powerpoint (PPTX)</div>
+            <input type="file" id="fileInput" accept=".pptx">
+        </div>
+
+        <div id="statusBox" class="status-box">
+            <div id="statusMessage"></div>
+            <div class="progress-bar" id="progressBar" style="display: none;">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+        </div>
+
+        <div id="results" class="results">
+            <h2 style="color: white; margin-bottom: 15px;"> Extraction Results</h2>
+            <div class="result-stats">
+                <div class="stat-card">
+                    <div class="stat-number" id="totalMCQs">0</div>
+                    <div class="stat-label">Total MCQs</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="validSlides">0</div>
+                    <div class="stat-label">Valid Slides</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="skippedSlides">0</div>
+                    <div class="stat-label">Skipped Slides</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="withAttributes">0</div>
+                    <div class="stat-label">With Attributes</div>
+                </div>
+            </div>
+
+            <button class="download-btn" id="downloadBtn">Download CSV File</button>
+
+            <div class="info-box">
+                <strong>Detection Rules:</strong><br>
+                • Only slides with green fill (#11FF7D, #00B050, or #34A853) are processed<br>
+                • Correct answers: Text boxes with green fill (#11FF7D, #00B050, or #34A853)<br>
+                • Questions: Text ending with '?', '-', or ':'<br>
+                • Attributes: Text starting with '[' or '(' AND ending with ']' or ')'<br>
+                • Option formats: A./B./C./D., (A)/(B)/(C)/(D), (a)/(b)/(c)/(d), a./b./c./d.<br>
+                • Options: Extracted without letters (only the text content)
+            </div>
+
+            <div class="mcq-preview" id="mcqPreview">
+                <h3 style="margin-bottom: 10px;">Preview (First 5 MCQs)</h3>
+                <div id="previewContent"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class PPTXMCQExtractor {
+            constructor() {
+                this.mcqData = [];
+                this.validSlides = [];
+                this.skippedSlidesCount = 0;
+                this.setupEventListeners();
+            }
+
+            setupEventListeners() {
+                const uploadZone = document.getElementById('uploadZone');
+                const fileInput = document.getElementById('fileInput');
+
+                uploadZone.addEventListener('click', () => fileInput.click());
+                
+                uploadZone.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    uploadZone.classList.add('dragover');
+                });
+
+                uploadZone.addEventListener('dragleave', () => {
+                    uploadZone.classList.remove('dragover');
+                });
+
+                uploadZone.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    uploadZone.classList.remove('dragover');
+                    const files = e.dataTransfer.files;
+                    if (files.length > 0 && files[0].name.endsWith('.pptx')) {
+                        this.processPPTX(files[0]);
+                    }
+                });
+
+                fileInput.addEventListener('change', (e) => {
+                    if (e.target.files.length > 0) {
+                        this.processPPTX(e.target.files[0]);
+                    }
+                });
+
+                document.getElementById('downloadBtn').addEventListener('click', () => {
+                    this.downloadCSV();
+                });
+            }
+
+            showStatus(message, type = 'processing') {
+                const statusBox = document.getElementById('statusBox');
+                const statusMessage = document.getElementById('statusMessage');
+                const progressBar = document.getElementById('progressBar');
+                
+                statusBox.style.display = 'block';
+                statusBox.className = `status-box ${type}`;
+                
+                if (type === 'processing') {
+                    statusMessage.innerHTML = `<span class="loading-spinner"></span>${message}`;
+                    progressBar.style.display = 'block';
+                } else {
+                    statusMessage.innerHTML = message;
+                    progressBar.style.display = 'none';
+                }
+            }
+
+            updateProgress(percent) {
+                document.getElementById('progressFill').style.width = `${percent}%`;
+            }
+
+            async processPPTX(file) {
+                this.showStatus('Loading and parsing PPTX file...', 'processing');
+                this.updateProgress(10);
+
+                try {
+                    const zip = await JSZip.loadAsync(file);
+                    this.updateProgress(20);
+
+                    // Get slide relationships to understand slide order
+                    const slideRels = await this.getSlideRelationships(zip);
+                    this.updateProgress(30);
+
+                    // Process all slides and filter valid ones
+                    const allSlides = await this.extractSlides(zip, slideRels);
+                    this.updateProgress(50);
+
+                    // Filter slides that contain green fill colors
+                    this.filterValidSlides(allSlides);
+                    this.updateProgress(60);
+
+                    // Parse MCQs from valid slide pairs
+                    this.mcqData = await this.parseMCQs(this.validSlides);
+                    this.updateProgress(90);
+
+                    // Show results
+                    this.displayResults();
+                    this.updateProgress(100);
+                    
+                    const slideWord = this.validSlides.length === 1 ? 'slide' : 'slides';
+                    const mcqWord = this.mcqData.length === 1 ? 'MCQ' : 'MCQs';
+                    this.showStatus(`✅ Successfully extracted ${this.mcqData.length} ${mcqWord} from ${this.validSlides.length} ${slideWord} containing green fill colors!`, 'success');
+
+                } catch (error) {
+                    console.error('Error processing PPTX:', error);
+                    this.showStatus(`Error: ${error.message}`, 'error');
+                }
+            }
+
+            async getSlideRelationships(zip) {
+                const relsPath = 'ppt/_rels/presentation.xml.rels';
+                if (!zip.files[relsPath]) return [];
+
+                const relsXml = await zip.file(relsPath).async('string');
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(relsXml, 'text/xml');
+                
+                const relationships = [];
+                const rels = doc.getElementsByTagName('Relationship');
+                
+                for (let rel of rels) {
+                    if (rel.getAttribute('Type').includes('slide')) {
+                        relationships.push({
+                            id: rel.getAttribute('Id'),
+                            target: rel.getAttribute('Target')
+                        });
+                    }
+                }
+                
+                return relationships.sort((a, b) => {
+                    const numA = parseInt(a.target.match(/\d+/)[0]);
+                    const numB = parseInt(b.target.match(/\d+/)[0]);
+                    return numA - numB;
+                });
+            }
+
+            async extractSlides(zip, slideRels) {
+                const slides = [];
+                
+                for (let i = 0; i < slideRels.length; i++) {
+                    const slidePath = `ppt/${slideRels[i].target}`;
+                    if (zip.files[slidePath]) {
+                        const slideXml = await zip.file(slidePath).async('string');
+                        const slideData = this.parseSlideContent(slideXml, i + 1);
+                        slides.push(slideData);
+                    }
+                }
+                
+                return slides;
+            }
+
+            parseSlideContent(slideXml, slideNumber) {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(slideXml, 'text/xml');
+                
+                const textBoxes = [];
+                const shapes = doc.getElementsByTagName('p:sp');
+                
+                for (let shape of shapes) {
+                    // Extract all paragraphs and text runs
+                    const paragraphs = shape.getElementsByTagName('a:p');
+                    let fullText = '';
+                    
+                    // Process each paragraph
+                    for (let i = 0; i < paragraphs.length; i++) {
+                        const para = paragraphs[i];
+                        const textElements = para.getElementsByTagName('a:t');
+                        
+                        let paraText = '';
+                        for (let textEl of textElements) {
+                            paraText += textEl.textContent;
+                        }
+                        
+                        // Add paragraph text with proper spacing
+                        if (paraText.trim()) {
+                            if (fullText && !fullText.endsWith(' ')) {
+                                fullText += ' '; // Add space between paragraphs/lines
+                            }
+                            fullText += paraText.trim();
+                        }
+                    }
+                    
+                    // If no paragraphs found, fall back to direct text extraction
+                    if (!fullText) {
+                        const textElements = shape.getElementsByTagName('a:t');
+                        for (let textEl of textElements) {
+                            if (fullText && !fullText.endsWith(' ')) {
+                                fullText += ' ';
+                            }
+                            fullText += textEl.textContent.trim();
+                        }
+                    }
+                    
+                    if (fullText.trim()) {
+                        // Check for fill color (for correct answer detection)
+                        let fillColor = null;
+                        const solidFill = shape.querySelector('a\\:solidFill, solidFill');
+                        if (solidFill) {
+                            const srgbClr = solidFill.querySelector('a\\:srgbClr, srgbClr');
+                            if (srgbClr) {
+                                fillColor = srgbClr.getAttribute('val');
+                            }
+                        }
+                        
+                        // Check for text color (for attributes)
+                        let textColor = null;
+                        const runProps = shape.querySelector('a\\:rPr, rPr');
+                        if (runProps) {
+                            const textFill = runProps.querySelector('a\\:solidFill, solidFill');
+                            if (textFill) {
+                                const textSrgb = textFill.querySelector('a\\:srgbClr, srgbClr');
+                                if (textSrgb) {
+                                    textColor = textSrgb.getAttribute('val');
+                                }
+                            }
+                        }
+                        
+                        textBoxes.push({
+                            text: fullText.trim(),
+                            fillColor: fillColor ? fillColor.toUpperCase() : null,
+                            textColor: textColor ? textColor.toUpperCase() : null,
+                            hasGreenFill: this.hasTargetGreenFill(fillColor),
+                            hasOrangeFill: this.hasOrangeFill(fillColor)
+                        });
+                    }
+                }
+                
+                // Check if slide has valid green fill
+                const hasValidGreenFill = textBoxes.some(box => box.hasGreenFill);
+                
+                return {
+                    slideNumber: slideNumber,
+                    textBoxes: textBoxes,
+                    hasValidGreenFill: hasValidGreenFill
+                };
+            }
+
+            hasTargetGreenFill(color) {
+                if (!color) return false;
+                const upperColor = color.toUpperCase();
+                // Check for specific green colors: #11FF7D, #00B050, or #34A853
+                return upperColor === '11FF7D' || upperColor === '00B050' || upperColor === '34A853';
+            }
+
+            hasOrangeFill(color) {
+                if (!color) return false;
+                const upperColor = color.toUpperCase();
+                // Check for orange color: #FFC000
+                return upperColor === 'FFC000';
+            }
+
+            filterValidSlides(allSlides) {
+                this.validSlides = [];
+                this.skippedSlidesCount = 0;
+                
+                for (let slide of allSlides) {
+                    if (slide.hasValidGreenFill) {
+                        this.validSlides.push(slide);
+                        console.log(`Slide ${slide.slideNumber}: Valid MCQ slide detected (contains green fill)`);
+                    } else {
+                        this.skippedSlidesCount++;
+                    }
+                }
+                
+                console.log(`Total valid MCQ slides: ${this.validSlides.length}, Skipped non-MCQ slides: ${this.skippedSlidesCount}`);
+            }
+
+            async parseMCQs(validSlides) {
+                const mcqs = [];
+                
+                // Process EACH valid slide as a complete MCQ
+                // Each slide with green fill (#11FF7D or #00B050) contains a full MCQ
+                for (let i = 0; i < validSlides.length; i++) {
+                    const slide = validSlides[i];
+                    
+                    // Extract MCQ from this single slide
+                    const mcq = this.extractMCQFromSlide(slide);
+                    if (mcq) {
+                        mcqs.push(mcq);
+                        console.log(`Extracted MCQ ${mcqs.length} from slide ${slide.slideNumber}`);
+                    }
+                }
+                
+                return mcqs;
+            }
+
+            extractMCQFromSlide(slide) {
+                // Each slide contains complete MCQ with answer marked by green fill
+                
+                // Extract title (text ending with ?, -, or :)
+                const title = this.extractTitle(slide.textBoxes);
+                
+                // Extract attributes (text in [], (), or with orange fill)
+                const attributes = this.extractAttributes(slide.textBoxes);
+                
+                // Extract all options from the slide
+                const options = this.extractOptions(slide.textBoxes);
+                
+                // Find correct answer (green filled text box)
+                const correctAnswerData = this.extractCorrectAnswer(slide.textBoxes);
+                
+                // Create MCQ object
+                const mcq = {
+                    title: title || '',
+                    image: '',
+                    thumbnail: '',
+                    video: '',
+                    audio: '',
+                    explanation: '',
+                    explanation_image: '',
+                    explanation_video: '',
+                    explanation_audio: '',
+                    options_1_answer: options[0] || '',
+                    options_1_is_correct: correctAnswerData.index === 1 ? 'TRUE' : 'FALSE',
+                    options_1_image: '',
+                    options_1_audio: '',
+                    options_1_video: '',
+                    options_2_answer: options[1] || '',
+                    options_2_is_correct: correctAnswerData.index === 2 ? 'TRUE' : 'FALSE',
+                    options_2_image: '',
+                    options_2_video: '',
+                    options_2_audio: '',
+                    options_3_answer: options[2] || '',
+                    options_3_is_correct: correctAnswerData.index === 3 ? 'TRUE' : 'FALSE',
+                    options_3_image: '',
+                    options_3_video: '',
+                    options_3_audio: '',
+                    options_4_answer: options[3] || '',
+                    options_4_is_correct: correctAnswerData.index === 4 ? 'TRUE' : 'FALSE',
+                    options_4_image: '',
+                    options_4_video: '',
+                    options_4_audio: '',
+                    correct_answer: correctAnswerData.letter,
+                    attributes: attributes || ''
+                };
+                
+                return mcq;
+            }
+
+            extractTitle(textBoxes) {
+                // Find text that ends with ?, -, or :
+                for (let box of textBoxes) {
+                    const text = box.text.trim();
+                    const lastChar = text[text.length - 1];
+                    
+                    // Check if text ends with ?, -, or :
+                    if (lastChar === '?' || lastChar === '-' || lastChar === ':') {
+                        // Also check it's not an option (doesn't start with A., B., etc.)
+                        if (!text.match(/^[A-D][\.\)]/)) {
+                            return text;
+                        }
+                    }
+                }
+                
+                // Fallback: find longest text that's not an option or attribute
+                let longestText = '';
+                for (let box of textBoxes) {
+                    const text = box.text.trim();
+                    if (!text.match(/^[A-D][\.\)]/) && 
+                        !text.match(/MCQ[-\s]*\d+/i) &&
+                        !this.isAttribute(box) &&
+                        text.length > longestText.length) {
+                        longestText = text;
+                    }
+                }
+                
+                return longestText;
+            }
+
+            extractAttributes(textBoxes) {
+                for (let box of textBoxes) {
+                    const text = box.text.trim();
+                    
+                    // Check if text starts AND ends with brackets
+                    // Must start with [ or ( and end with ] or )
+                    if ((text.startsWith('[') && text.endsWith(']')) ||
+                        (text.startsWith('(') && text.endsWith(')'))) {
+                        return text;
+                    }
+                }
+                
+                return '';
+            }
+
+            isAttribute(box) {
+                const text = box.text.trim();
+                // Text must start AND end with brackets to be an attribute
+                return (text.startsWith('[') && text.endsWith(']')) ||
+                       (text.startsWith('(') && text.endsWith(')'));
+            }
+
+            extractOptions(textBoxes) {
+                const options = [];
+                // Updated patterns to support multiple formats:
+                // A. or B) or (A) or (a) or a. etc.
+                const optionPatterns = [
+                    /^([A-Da-d])[\.\)]\s+(.+)$/,        // A. text or B) text
+                    /^\(([A-Da-d])\)\s*(.+)$/,          // (A) text or (a) text
+                    /^([A-Da-d])\.\s+(.+)$/,            // A. text (with just dot)
+                    /^([A-Da-d])\s*[-–—]\s*(.+)$/,      // A - text or A – text
+                    /^([A-Da-d])\s*:\s*(.+)$/           // A: text
+                ];
+                
+                // First try to find options with any of the standard formats
+                for (let box of textBoxes) {
+                    const text = box.text.trim();
+                    
+                    for (let pattern of optionPatterns) {
+                        const match = text.match(pattern);
+                        if (match) {
+                            const optionLetter = match[1].toUpperCase();
+                            const optionText = match[2].trim(); // Extract text WITHOUT the letter
+                            const index = optionLetter.charCodeAt(0) - 65; // A=0, B=1, C=2, D=3
+                            
+                            if (index >= 0 && index < 4) {
+                                options[index] = optionText; // Store only the text, not the letter
+                            }
+                            break; // Found a match, no need to check other patterns
+                        }
+                    }
+                }
+                
+                // If we found all 4 options, return them
+                if (options.filter(o => o).length === 4) {
+                    return options;
+                }
+                
+                // Fallback: Look for text boxes that are likely options
+                // Exclude title (ending with ?, :, -), attributes, and MCQ numbers
+                const possibleOptions = [];
+                for (let box of textBoxes) {
+                    const text = box.text.trim();
+                    const lastChar = text[text.length - 1];
+                    
+                    // Skip if it's likely a title, MCQ number, attribute, or has green fill
+                    if (text.match(/MCQ[-\s]*\d+/i) ||
+                        this.isAttribute(box) ||
+                        lastChar === '?' || lastChar === ':' || lastChar === '-' ||
+                        box.hasGreenFill ||
+                        text.length > 300) { // Options are typically shorter
+                        continue;
+                    }
+                    
+                    // Check if this text has already been added as an option
+                    let alreadyAdded = false;
+                    for (let opt of options) {
+                        if (opt && text.includes(opt)) {
+                            alreadyAdded = true;
+                            break;
+                        }
+                    }
+                    
+                    if (!alreadyAdded) {
+                        possibleOptions.push(text);
+                    }
+                }
+                
+                // Fill in missing options from possible options
+                let optionIndex = 0;
+                for (let i = 0; i < 4; i++) {
+                    if (!options[i] && optionIndex < possibleOptions.length) {
+                        options[i] = possibleOptions[optionIndex++];
+                    }
+                }
+                
+                // Ensure we always have 4 options (empty if not found)
+                for (let i = 0; i < 4; i++) {
+                    if (!options[i]) {
+                        options[i] = '';
+                    }
+                }
+                
+                return options;
+            }
+
+            extractCorrectAnswer(textBoxes) {
+                // Look for text box with green fill (#11FF7D, #00B050, or #34A853)
+                for (let box of textBoxes) {
+                    if (box.hasGreenFill) {
+                        const text = box.text.trim();
+                        
+                        // Try multiple patterns to extract option letter
+                        const patterns = [
+                            /^([A-Da-d])[\.\)]/,           // A. or B)
+                            /^\(([A-Da-d])\)/,             // (A) or (a)
+                            /^([A-Da-d])\s*[-–—:]/,        // A- or A: or A–
+                            /^([A-Da-d])\./                // A. (just dot)
+                        ];
+                        
+                        for (let pattern of patterns) {
+                            const match = text.match(pattern);
+                            if (match) {
+                                const letter = match[1].toUpperCase();
+                                const index = letter.charCodeAt(0) - 64; // A=1, B=2, C=3, D=4
+                                return { letter: letter, index: index };
+                            }
+                        }
+                        
+                        // If no clear option format, try to extract just the content
+                        // and match it with the options we found
+                        return this.matchTextToOption(text, textBoxes);
+                    }
+                }
+                
+                // Default if no green fill found
+                return { letter: 'A', index: 1 };
+            }
+
+            matchTextToOption(correctText, allTextBoxes) {
+                // Try to find which option matches the correct answer text
+                const patterns = [
+                    /^([A-Da-d])[\.\)]\s*(.+)$/,        // A. text or B) text
+                    /^\(([A-Da-d])\)\s*(.+)$/,          // (A) text
+                    /^([A-Da-d])\.\s*(.+)$/,            // A. text
+                    /^([A-Da-d])\s*[-–—:]\s*(.+)$/     // A- or A: text
+                ];
+                
+                // First try to extract the option content from the correct answer
+                let correctContent = correctText;
+                for (let pattern of patterns) {
+                    const match = correctText.match(pattern);
+                    if (match) {
+                        correctContent = match[2].trim();
+                        const letter = match[1].toUpperCase();
+                        const index = letter.charCodeAt(0) - 64;
+                        return { letter: letter, index: index };
+                    }
+                }
+                
+                // If no pattern matched, try to find matching content in other text boxes
+                let optionIndex = 1;
+                let optionLetter = 'A';
+                
+                for (let box of allTextBoxes) {
+                    for (let pattern of patterns) {
+                        const match = box.text.match(pattern);
+                        if (match) {
+                            const optionContent = match[2].trim();
+                            // Check if this content matches the green-filled content
+                            if (correctContent.includes(optionContent.substring(0, 20)) ||
+                                optionContent.includes(correctContent.substring(0, 20))) {
+                                optionLetter = match[1].toUpperCase();
+                                optionIndex = optionLetter.charCodeAt(0) - 64;
+                                return { letter: optionLetter, index: optionIndex };
+                            }
+                        }
+                    }
+                }
+                
+                return { letter: optionLetter, index: optionIndex };
+            }
+
+            displayResults() {
+                document.getElementById('results').style.display = 'block';
+                document.getElementById('totalMCQs').textContent = this.mcqData.length;
+                document.getElementById('validSlides').textContent = this.validSlides.length;
+                document.getElementById('skippedSlides').textContent = this.skippedSlidesCount;
+                
+                const withAttr = this.mcqData.filter(mcq => mcq.attributes).length;
+                document.getElementById('withAttributes').textContent = withAttr;
+
+                // Show preview
+                const previewContent = document.getElementById('previewContent');
+                previewContent.innerHTML = '';
+                
+                const previewCount = Math.min(5, this.mcqData.length);
+                for (let i = 0; i < previewCount; i++) {
+                    const mcq = this.mcqData[i];
+                    const mcqDiv = document.createElement('div');
+                    mcqDiv.className = 'mcq-item';
+                    
+                    mcqDiv.innerHTML = `
+                        <div class="mcq-title">Q${i + 1}: ${this.escapeHtml(mcq.title)}</div>
+                        <div class="mcq-option ${mcq.options_1_is_correct === 'TRUE' ? 'correct' : ''}">
+                            ${this.escapeHtml(mcq.options_1_answer)} ${mcq.options_1_is_correct === 'TRUE' ? '✓' : ''}
+                        </div>
+                        <div class="mcq-option ${mcq.options_2_is_correct === 'TRUE' ? 'correct' : ''}">
+                            ${this.escapeHtml(mcq.options_2_answer)} ${mcq.options_2_is_correct === 'TRUE' ? '✓' : ''}
+                        </div>
+                        <div class="mcq-option ${mcq.options_3_is_correct === 'TRUE' ? 'correct' : ''}">
+                            ${this.escapeHtml(mcq.options_3_answer)} ${mcq.options_3_is_correct === 'TRUE' ? '✓' : ''}
+                        </div>
+                        <div class="mcq-option ${mcq.options_4_is_correct === 'TRUE' ? 'correct' : ''}">
+                            ${this.escapeHtml(mcq.options_4_answer)} ${mcq.options_4_is_correct === 'TRUE' ? '✓' : ''}
+                        </div>
+                        ${mcq.attributes ? `<div style="margin-top: 10px; color: #856404; font-size: 0.9em;">📌 Reference: ${this.escapeHtml(mcq.attributes)}</div>` : ''}
+                    `;
+                    
+                    previewContent.appendChild(mcqDiv);
+                }
+
+                if (this.mcqData.length === 0) {
+                    previewContent.innerHTML = '<p style="color: #666; text-align: center;">No MCQs found. Please check if your slides contain the required green fill colors (#11FF7D or #00B050).</p>';
+                }
+            }
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            downloadCSV() {
+                if (this.mcqData.length === 0) {
+                    alert('No MCQs to export. Please process a PPTX file first.');
+                    return;
+                }
+
+                const csv = Papa.unparse(this.mcqData, {
+                    header: true,
+                    columns: [
+                        'title', 'image', 'thumbnail', 'video', 'audio',
+                        'explanation', 'explanation_image', 'explanation_video', 'explanation_audio',
+                        'options_1_answer', 'options_1_is_correct', 'options_1_image', 'options_1_audio', 'options_1_video',
+                        'options_2_answer', 'options_2_is_correct', 'options_2_image', 'options_2_video', 'options_2_audio',
+                        'options_3_answer', 'options_3_is_correct', 'options_3_image', 'options_3_video', 'options_3_audio',
+                        'options_4_answer', 'options_4_is_correct', 'options_4_image', 'options_4_video', 'options_4_audio',
+                        'correct_answer', 'attributes'
+                    ]
+                });
+
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+                
+                link.setAttribute('href', url);
+                link.setAttribute('download', `MCQ_Export_${new Date().toISOString().split('T')[0]}.csv`);
+                link.style.visibility = 'hidden';
+                
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+                // Show success message
+                this.showStatus(`CSV file downloaded successfully with ${this.mcqData.length} MCQs!`, 'success');
+            }
+        }
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', () => {
+            new PPTXMCQExtractor();
+            console.log('PPTX MCQ Extractor initialized - v2.0 with accurate detection');
+        });
+    </script>
+</body>
+</html>
